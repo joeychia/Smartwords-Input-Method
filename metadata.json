@@ -1,5 +1,5 @@
 {
-  "name": "Copy of VoiceFlow VIM",
+  "name": "Smart Words Input Method",
   "description": "AI-powered speech-to-text input method companion app that rewrites dictation for clarity and style.",
   "requestFramePermissions": [
     "microphone"
