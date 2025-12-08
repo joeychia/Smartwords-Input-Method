@@ -1,8 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { RewriteVariant, HistoryItem } from '../types';
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize Gemini Client for browser (Vite uses import.meta.env)
+const apiKey: string | undefined = (import.meta as any).env?.VITE_API_KEY;
+let ai: GoogleGenAI | null = null;
+try {
+  if (apiKey) {
+    ai = new GoogleGenAI({ apiKey });
+  }
+} catch (e) {
+  console.error("Gemini client initialization failed", e);
+  ai = null;
+}
 
 export const generateRewrites = async (
   rawTranscript: string,
@@ -10,6 +19,12 @@ export const generateRewrites = async (
   tone: string
 ): Promise<RewriteVariant[]> => {
   try {
+    if (!ai) {
+      return [
+        { id: 'original', label: 'Original', text: rawTranscript, description: 'Raw transcript' },
+        { id: 'local', label: 'Local', text: rawTranscript, description: 'API key missing; using raw text' }
+      ];
+    }
     // Construct context string from previous history to help the model understand continuity
     const recentContext = contextHistory
       .slice(0, 5) // Last 5 messages

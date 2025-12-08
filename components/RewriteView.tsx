@@ -20,6 +20,7 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [variants, setVariants] = useState<RewriteVariant[]>([]);
+  const startRef = React.useRef<{x:number;y:number;time:number}|null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,9 +54,25 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div 
+      className="flex flex-col h-full bg-slate-50"
+      onTouchStart={(e) => {
+        const t = e.touches[0];
+        startRef.current = { x: t.clientX, y: t.clientY, time: Date.now() };
+      }}
+      onTouchEnd={(e) => {
+        const s = startRef.current; if (!s) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - s.x; const dy = Math.abs(t.clientY - s.y);
+        const dt = Date.now() - s.time;
+        if (s.x < 30 && dx > 60 && dy < 40 && dt < 600) {
+          onBack();
+        }
+        startRef.current = null;
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center px-4 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b border-slate-100">
+      <div className="flex items-center px-4 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-[100] border-b border-slate-100" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <button onClick={onBack} className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full">
             <ChevronLeft size={24} />
         </button>

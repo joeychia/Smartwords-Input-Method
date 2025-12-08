@@ -10,7 +10,7 @@ interface HistoryViewProps {
 export const HistoryView: React.FC<HistoryViewProps> = ({ history, onClear }) => {
   return (
     <div className="flex flex-col h-full bg-slate-50">
-      <div className="flex items-center justify-between px-6 py-5 bg-white border-b border-slate-100 sticky top-0 z-10">
+      <div className="flex items-center justify-between px-6 py-5 bg-white border-b border-slate-100 sticky top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <h2 className="text-2xl font-bold text-slate-800">History</h2>
         {history.length > 0 && (
           <button 
