@@ -64,9 +64,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate }
             <div className="flex items-start space-x-3">
                 <SettingsIcon size={20} className="text-indigo-500 mt-0.5" />
                 <div>
-                    <h4 className="font-semibold text-indigo-900 text-sm">How VIM Works</h4>
+                    <h4 className="font-semibold text-indigo-900 text-sm">How Smart Words Works</h4>
                     <p className="text-indigo-700/80 text-xs mt-1 leading-relaxed">
-                        VoiceFlow works with the custom keyboard extension. 
+                        Smart Words works with the custom keyboard extension. 
                         Selections made here are saved to the App Group container and auto-pasted by the keyboard when you switch back.
                     </p>
                 </div>

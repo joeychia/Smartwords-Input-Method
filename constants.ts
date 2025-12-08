@@ -1,6 +1,6 @@
 import { UserSettings } from './types';
 
-export const APP_NAME = "VoiceFlow";
+export const APP_NAME = "Smart Words";
 
 export const DEFAULT_SETTINGS: UserSettings = {
   tone: 'natural',
