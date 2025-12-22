@@ -54,63 +54,192 @@ interface DictationViewProps {
   language: 'mixed' | 'en' | 'zh';
 }
 
+// Extend Window interface for iOS bridge callbacks
+declare global {
+  interface Window {
+    handleSpeechResult?: (result: { transcript: string; isFinal: boolean }) => void;
+    handleSpeechStarted?: () => void;
+    handleSpeechError?: (error: string) => void;
+  }
+}
+
 export const DictationView: React.FC<DictationViewProps> = ({ onFinish, language }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [interim, setInterim] = useState('');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [useNativeSpeech, setUseNativeSpeech] = useState(false);
+  const transcriptBoxRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when transcript or interim changes
+  useEffect(() => {
+    if (transcriptBoxRef.current) {
+      transcriptBoxRef.current.scrollTop = transcriptBoxRef.current.scrollHeight;
+    }
+  }, [transcript, interim]);
 
   useEffect(() => {
-    // Setup Web Speech API (Simulation of SFSpeechRecognizer)
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      // Heuristic mapping for language
-      recognition.lang = language === 'en' ? 'en-US' : language === 'zh' ? 'zh-CN' : 'zh-CN'; 
+    // Check if running in iOS WKWebView with native speech support
+    const hasNativeSpeech = !!(window.webkit?.messageHandlers?.speechHandler);
+    setUseNativeSpeech(hasNativeSpeech);
 
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let finalTrans = '';
-        let interimTrans = '';
+    if (hasNativeSpeech) {
+      console.log('✅ Using native iOS speech recognition');
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTrans += event.results[i][0].transcript;
-          } else {
-            interimTrans += event.results[i][0].transcript;
+      // Setup callbacks for native speech
+      window.handleSpeechResult = (result: { transcript: string; isFinal: boolean }) => {
+        console.log('🎤 Native speech result:', result);
+        if (result.isFinal) {
+          setTranscript(prev => prev + result.transcript);
+          setInterim('');
+        } else {
+          setInterim(result.transcript);
+        }
+      };
+
+      window.handleSpeechStarted = () => {
+        console.log('✅ Native speech started');
+        setIsListening(true);
+      };
+
+      window.handleSpeechError = (error: string) => {
+        console.error('❌ Native speech error:', error);
+        alert(`Speech recognition error: ${error}`);
+        setIsListening(false);
+      };
+
+      return () => {
+        delete window.handleSpeechResult;
+        delete window.handleSpeechStarted;
+        delete window.handleSpeechError;
+      };
+    } else {
+      // Fallback to Web Speech API
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        // Heuristic mapping for language
+        recognition.lang = language === 'en' ? 'en-US' : language === 'zh' ? 'zh-CN' : 'zh-CN';
+
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
+          let finalTrans = '';
+          let interimTrans = '';
+
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTrans += event.results[i][0].transcript;
+            } else {
+              interimTrans += event.results[i][0].transcript;
+            }
           }
-        }
 
-        if (finalTrans) {
-          setTranscript(prev => prev + finalTrans);
-        }
-        setInterim(interimTrans);
-      };
+          if (finalTrans) {
+            setTranscript(prev => prev + finalTrans);
+          }
+          setInterim(interimTrans);
+        };
 
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error("Speech recognition error", event.error);
-        setIsListening(false);
-      };
+        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+          console.error("Speech recognition error", event.error);
+          setIsListening(false);
+        };
 
-      recognition.onend = () => {
-        setIsListening(false);
-      };
+        recognition.onend = () => {
+          setIsListening(false);
+        };
 
-      recognitionRef.current = recognition;
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        recognitionRef.current = recognition;
       }
-    };
+
+      return () => {
+        if (recognitionRef.current) {
+          recognitionRef.current.stop();
+        }
+      };
+    }
   }, [language]);
 
   const toggleListening = () => {
+    // Check if we should use native iOS speech
+    if (useNativeSpeech) {
+      const webkit = (window as any).webkit;
+      if (webkit?.messageHandlers?.speechHandler) {
+        if (isListening) {
+          // Stop native speech recognition
+          webkit.messageHandlers.speechHandler.postMessage({
+            action: 'stop'
+          });
+          setIsListening(false);
+
+          // Finish with current transcript
+          setTimeout(() => {
+            if (transcript || interim) {
+              onFinish(transcript + interim);
+            }
+          }, 500);
+        } else {
+          // Start native speech recognition
+          setTranscript('');
+          setInterim('');
+
+          // Map language to iOS locale
+          const iosLanguage = language === 'en' ? 'en-US' : language === 'zh' ? 'zh-CN' : 'zh-CN';
+
+          webkit.messageHandlers.speechHandler.postMessage({
+            action: 'start',
+            language: iosLanguage
+          });
+
+          console.log('🎤 Starting native iOS speech recognition');
+        }
+        return;
+      }
+    }
+
+    // Fallback to Web Speech API
     if (!recognitionRef.current) {
-      alert("Browser does not support Speech Recognition.");
+      // Mock dictation for testing when Web Speech API is not available
+      console.warn("⚠️ Web Speech API not available. Using mock dictation for testing.");
+
+      if (isListening) {
+        setIsListening(false);
+        // Simulate finishing dictation
+        setTimeout(() => {
+          if (transcript || interim) {
+            onFinish(transcript + interim);
+          }
+        }, 500);
+      } else {
+        // Mock dictation: simulate user speaking
+        setTranscript('');
+        setInterim('');
+        setIsListening(true);
+
+        // Simulate typing out text over time
+        const mockText = "Hello this is a test of the smart words input method";
+        let currentText = '';
+        let index = 0;
+
+        const interval = setInterval(() => {
+          if (index < mockText.length) {
+            currentText += mockText[index];
+            setInterim(currentText);
+            index++;
+          } else {
+            clearInterval(interval);
+            setTranscript(currentText);
+            setInterim('');
+            setIsListening(false);
+            // Auto-finish after mock dictation completes
+            setTimeout(() => {
+              onFinish(currentText);
+            }, 500);
+          }
+        }, 50); // Type one character every 50ms
+      }
       return;
     }
 
@@ -126,14 +255,22 @@ export const DictationView: React.FC<DictationViewProps> = ({ onFinish, language
     } else {
       setTranscript('');
       setInterim('');
-      recognitionRef.current.start();
-      setIsListening(true);
+
+      // Add error handling for start
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+        console.log('✅ Speech recognition started');
+      } catch (error) {
+        console.error('❌ Failed to start speech recognition:', error);
+        alert(`Failed to start microphone:\n${error}\n\nTry:\n1. Check microphone permissions in Settings\n2. Use HTTPS or localhost\n3. Test on iOS Simulator instead`);
+      }
     }
   };
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 py-8">
-      
+
       {/* Dynamic Text Area */}
       <div className="flex-1 w-full flex flex-col items-center justify-center min-h-[200px] mb-8 relative">
         {transcript === '' && interim === '' && !isListening && (
@@ -142,8 +279,11 @@ export const DictationView: React.FC<DictationViewProps> = ({ onFinish, language
             <p className="text-sm mt-2">I will refine your text instantly</p>
           </div>
         )}
-        
-        <div className="w-full text-2xl md:text-3xl font-medium text-center leading-relaxed transition-all">
+
+        <div
+          ref={transcriptBoxRef}
+          className="w-full max-h-64 overflow-y-auto text-2xl md:text-3xl font-medium text-center leading-relaxed transition-all px-4 py-2"
+        >
           <span className="text-slate-800">{transcript}</span>
           <span className="text-slate-400">{interim}</span>
         </div>
@@ -151,7 +291,7 @@ export const DictationView: React.FC<DictationViewProps> = ({ onFinish, language
 
       {/* Controls */}
       <div className="w-full flex flex-col items-center space-y-8 mb-12">
-        
+
         {/* Language Badge */}
         <div className="flex items-center space-x-2 px-4 py-1.5 bg-gray-200 rounded-full text-xs font-semibold text-gray-600 uppercase tracking-wide">
           <Globe size={12} />
@@ -163,17 +303,17 @@ export const DictationView: React.FC<DictationViewProps> = ({ onFinish, language
           onClick={toggleListening}
           className={`
             relative flex items-center justify-center w-24 h-24 rounded-full transition-all duration-300 shadow-xl
-            ${isListening 
-              ? 'bg-red-500 shadow-red-500/40 scale-110' 
+            ${isListening
+              ? 'bg-red-500 shadow-red-500/40 scale-110'
               : 'bg-indigo-600 shadow-indigo-600/40 hover:scale-105 active:scale-95'}
           `}
         >
           {isListening && (
             <span className="absolute w-full h-full rounded-full bg-red-500 opacity-30 animate-ping"></span>
           )}
-          
+
           {isListening ? (
-             <div className="w-8 h-8 rounded bg-white" /> // Stop square
+            <div className="w-8 h-8 rounded bg-white" /> // Stop square
           ) : (
             <Mic size={40} className="text-white" />
           )}

@@ -50,6 +50,24 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         (UIApplication.shared.delegate as? AppDelegate)?.saveContext()
     }
 
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard let url = URLContexts.first?.url else { return }
+        print("✅ SmartWords received URL: \(url.absoluteString)")
+        
+        if url.scheme == "smartwords" {
+            // Explicitly activate the window and scene to bring app to foreground
+            if let windowScene = scene as? UIWindowScene {
+                windowScene.windows.first?.makeKeyAndVisible()
+                print("✅ Window activated and brought to foreground")
+            }
+            
+            // If the URL has a specific path, we could handle different actions here
+            if url.host == "dictate" || url.path.contains("dictate") {
+                print("✅ Dictate action triggered - app is ready for voice input")
+                // The ViewController with WKWebView is already the root, so no navigation needed
+                // The React app will handle the UI state
+            }
+        }
+    }
 
 }
-

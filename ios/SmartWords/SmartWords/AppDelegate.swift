@@ -7,14 +7,20 @@
 
 import UIKit
 import CoreData
+import UserNotifications
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-
-
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Request Notification Permissions for "Tap to Open" fallback
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("✅ Notifications permission granted")
+            } else if let error = error {
+                print("❌ Notifications permission blocked: \(error.localizedDescription)")
+            }
+        }
         return true
     }
 
@@ -31,6 +37,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
         // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
     }
+
+    // URL handling is implemented in SceneDelegate.scene(_:openURLContexts:) for modern iOS.
 
     // MARK: - Core Data stack
 
@@ -78,4 +86,3 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
 }
-

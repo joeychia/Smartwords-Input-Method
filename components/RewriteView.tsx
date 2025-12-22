@@ -11,20 +11,21 @@ interface RewriteViewProps {
   onBack: () => void;
 }
 
-export const RewriteView: React.FC<RewriteViewProps> = ({ 
-  rawTranscript, 
-  contextHistory, 
-  tone, 
-  onSelect, 
-  onBack 
+export const RewriteView: React.FC<RewriteViewProps> = ({
+  rawTranscript,
+  contextHistory,
+  tone,
+  onSelect,
+  onBack
 }) => {
   const [loading, setLoading] = useState(true);
   const [variants, setVariants] = useState<RewriteVariant[]>([]);
-  const startRef = React.useRef<{x:number;y:number;time:number}|null>(null);
+  const [languageFilter, setLanguageFilter] = useState<'all' | 'zh' | 'en'>('all');
+  const startRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const fetch = async () => {
       const results = await generateRewrites(rawTranscript, contextHistory, tone);
       if (isMounted) {
@@ -32,11 +33,19 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
         setLoading(false);
       }
     };
-    
+
     fetch();
 
     return () => { isMounted = false; };
   }, [rawTranscript, contextHistory, tone]);
+
+  // Filter variants based on selected language
+  const filteredVariants = variants.filter(variant => {
+    if (languageFilter === 'all') return true;
+    if (languageFilter === 'zh') return variant.id.startsWith('zh-') || variant.id === 'original';
+    if (languageFilter === 'en') return variant.id.startsWith('en-');
+    return true;
+  });
 
   if (loading) {
     return (
@@ -46,15 +55,15 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
           <Loader2 size={48} className="text-indigo-600 animate-spin relative z-10" />
         </div>
         <div className="space-y-2">
-            <h3 className="text-xl font-semibold text-slate-800">Polishing your thought...</h3>
-            <p className="text-slate-500">Analyzing context and style</p>
+          <h3 className="text-xl font-semibold text-slate-800">Polishing your thought...</h3>
+          <p className="text-slate-500">Analyzing context and style</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div 
+    <div
       className="flex flex-col h-full bg-slate-50"
       onTouchStart={(e) => {
         const t = e.touches[0];
@@ -74,28 +83,61 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
       {/* Header */}
       <div className="flex items-center px-4 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-[100] border-b border-slate-100" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <button onClick={onBack} className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full">
-            <ChevronLeft size={24} />
+          <ChevronLeft size={24} />
         </button>
         <h2 className="ml-2 text-lg font-semibold text-slate-800">Select Version</h2>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-        
+
         {/* Original */}
         <div className="px-4 py-3 bg-slate-100 rounded-xl border border-slate-200">
-            <p className="text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Original</p>
-            <p className="text-slate-700">{rawTranscript}</p>
+          <p className="text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Original</p>
+          <p className="text-slate-700">{rawTranscript}</p>
         </div>
 
-        <div className="flex items-center space-x-2 my-4">
+        <div className="flex items-center justify-between my-4">
+          <div className="flex items-center space-x-2">
             <Sparkles size={16} className="text-indigo-500" />
             <span className="text-sm font-medium text-indigo-600">AI Suggestions</span>
+          </div>
+
+          {/* Language Toggle */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-1">
+            <button
+              onClick={() => setLanguageFilter('all')}
+              className={`px-3 py-1 text-xs font-medium rounded transition-all ${languageFilter === 'all'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-800'
+                }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setLanguageFilter('zh')}
+              className={`px-3 py-1 text-xs font-medium rounded transition-all ${languageFilter === 'zh'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-800'
+                }`}
+            >
+              中文
+            </button>
+            <button
+              onClick={() => setLanguageFilter('en')}
+              className={`px-3 py-1 text-xs font-medium rounded transition-all ${languageFilter === 'en'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-800'
+                }`}
+            >
+              EN
+            </button>
+          </div>
         </div>
 
         {/* Variants List */}
         <div className="space-y-3">
-          {variants.map((variant) => (
+          {filteredVariants.map((variant) => (
             <button
               key={variant.id}
               onClick={() => onSelect(variant)}
@@ -103,14 +145,14 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
             >
               <div className="flex justify-between items-start mb-2">
                 <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100">
-                    {variant.label}
+                  {variant.label}
                 </span>
               </div>
               <p className="text-base text-slate-800 leading-relaxed font-medium">
                 {variant.text}
               </p>
               {variant.description && (
-                  <p className="mt-2 text-xs text-slate-400">{variant.description}</p>
+                <p className="mt-2 text-xs text-slate-400">{variant.description}</p>
               )}
             </button>
           ))}
