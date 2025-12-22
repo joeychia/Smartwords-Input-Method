@@ -1,5 +1,4 @@
 import Foundation
-import UIKit
 
 final class DataManager {
     static let shared = DataManager()
@@ -15,12 +14,11 @@ final class DataManager {
     func savePendingText(_ text: String) {
         defaults.set(text, forKey: keyPending)
         defaults.synchronize()
-        UIPasteboard.general.string = text
+        // Removed UIPasteboard usage to prevent "Allow Pasting" popups
     }
 
     func getPendingText() -> String? {
-        if let v = defaults.string(forKey: keyPending) { return v }
-        return UIPasteboard.general.string
+        return defaults.string(forKey: keyPending)
     }
 
     func clearPendingText() {
