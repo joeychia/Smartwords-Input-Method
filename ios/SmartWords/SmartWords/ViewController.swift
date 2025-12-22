@@ -12,12 +12,18 @@ import AVFoundation
 
 class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHandler, SFSpeechRecognizerDelegate {
     var webView: WKWebView!
+    #if DEBUG
     let candidateURLs: [String] = [
-        // "https://joeychia.github.io/Smartwords-Input-Method/", // Production (Update this!)
         "http://10.0.0.131:5173",  // Mac's local IP - use this for physical device
         "http://localhost:5173",     // Works for Simulator only
         "http://127.0.0.1:5173"
     ]
+    #else
+    let candidateURLs: [String] = [
+        "https://joeychia.github.io/Smartwords-Input-Method/" // Production
+    ]
+    #endif
+
     
     // Speech Recognition Properties
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
