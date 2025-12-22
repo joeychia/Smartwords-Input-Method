@@ -1,0 +1,5 @@
+app_identifier("com.joeyjia.smartwords") # The bundle identifier of your app
+apple_id("joeyjia@google.com") # Your Apple Developer Account email (Placeholder)
+
+# For nested projects or workspaces
+# workspace("./ios/SmartWords.xcworkspace")

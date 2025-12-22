@@ -13,6 +13,7 @@ import AVFoundation
 class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHandler, SFSpeechRecognizerDelegate {
     var webView: WKWebView!
     let candidateURLs: [String] = [
+        "https://[YOUR_GITHUB_USER].github.io/Smartwords-Input-Method/", // Production (Update this!)
         "http://10.0.0.131:5173",  // Mac's local IP - use this for physical device
         "http://localhost:5173",     // Works for Simulator only
         "http://127.0.0.1:5173"

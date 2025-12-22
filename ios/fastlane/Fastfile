@@ -1,0 +1,27 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Push a new beta build to TestFlight"
+  lane :beta do
+    ensure_git_status_clean
+    
+    # 1. Setup Keychain for CI (Temporary)
+    setup_ci
+    
+    # 2. Sync Code Signing (requires MATCH_GIT_URL and MATCH_PASSWORD env vars)
+    # Read-only prevents CI from accidentally revoking certs
+    match(type: "appstore", readonly: true) 
+
+    # 3. Build App
+    gym(
+      scheme: "SmartWords",
+      export_method: "app-store",
+      result_bundle: true
+    )
+
+    # 4. Upload to TestFlight (requires ASC_XXX env vars)
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true
+    )
+  end
+end
