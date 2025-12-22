@@ -78,9 +78,11 @@ export const DictationView: React.FC<DictationViewProps> = ({ onFinish, language
     }
   }, [transcript, interim]);
 
+  const autoStartRef = useRef(false);
+
   useEffect(() => {
     // Check if running in iOS WKWebView with native speech support
-    const hasNativeSpeech = !!(window.webkit?.messageHandlers?.speechHandler);
+    const hasNativeSpeech = !!((window as any).webkit?.messageHandlers?.speechHandler);
     setUseNativeSpeech(hasNativeSpeech);
 
     if (hasNativeSpeech) {
@@ -104,9 +106,25 @@ export const DictationView: React.FC<DictationViewProps> = ({ onFinish, language
 
       window.handleSpeechError = (error: string) => {
         console.error('❌ Native speech error:', error);
-        alert(`Speech recognition error: ${error}`);
+        // Alert might be annoying on auto-start if permissions pending, but good for debugging
+        // alert(`Speech recognition error: ${error}`); 
         setIsListening(false);
       };
+
+      // Auto-start logic (Once per mount)
+      if (!autoStartRef.current) {
+        autoStartRef.current = true;
+        const iosLanguage = language === 'en' ? 'en-US' : language === 'zh' ? 'zh-CN' : 'zh-CN';
+        console.log('🚀 Auto-starting native speech...');
+
+        // Increased delay to 1500ms to ensure iOS app is fully active and foregrounded
+        setTimeout(() => {
+          (window as any).webkit.messageHandlers.speechHandler.postMessage({
+            action: 'start',
+            language: iosLanguage
+          });
+        }, 1500);
+      }
 
       return () => {
         delete window.handleSpeechResult;
@@ -152,6 +170,18 @@ export const DictationView: React.FC<DictationViewProps> = ({ onFinish, language
         };
 
         recognitionRef.current = recognition;
+
+        // Auto-start Web Speech
+        if (!autoStartRef.current) {
+          autoStartRef.current = true;
+          console.log('🚀 Auto-starting web speech...');
+          try {
+            recognition.start();
+            setIsListening(true);
+          } catch (e) {
+            console.error("Auto-start failed", e);
+          }
+        }
       }
 
       return () => {

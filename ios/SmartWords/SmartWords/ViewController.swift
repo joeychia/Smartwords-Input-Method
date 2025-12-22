@@ -13,7 +13,7 @@ import AVFoundation
 class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHandler, SFSpeechRecognizerDelegate {
     var webView: WKWebView!
     let candidateURLs: [String] = [
-        "https://joeychia.github.io/Smartwords-Input-Method/", // Production (Update this!)
+        // "https://joeychia.github.io/Smartwords-Input-Method/", // Production (Update this!)
         "http://10.0.0.131:5173",  // Mac's local IP - use this for physical device
         "http://localhost:5173",     // Works for Simulator only
         "http://127.0.0.1:5173"
@@ -93,8 +93,13 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
         
         // Configure audio session
         let audioSession = AVAudioSession.sharedInstance()
-        try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+        // Use .playAndRecord for better compatibility with foreground transitions
+        try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
+        
+        // Single activation attempt without blocking the main thread
+        // If it fails here, the React layer will retry via the increased 1.5s delay
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        print("✅ Audio Session activated")
         
         // Create recognition request
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
