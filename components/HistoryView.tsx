@@ -5,15 +5,39 @@ import { Trash2, Copy } from 'lucide-react';
 interface HistoryViewProps {
   history: HistoryItem[];
   onClear: () => void;
+  onItemClick: (item: HistoryItem) => void;
+  onItemLongPress: (item: HistoryItem) => void;
 }
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ history, onClear }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ history, onClear, onItemClick, onItemLongPress }) => {
+  const longPressTimer = React.useRef<NodeJS.Timeout | null>(null);
+  const isLongPress = React.useRef(false);
+
+  const handleTouchStart = (item: HistoryItem) => {
+    isLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      isLongPress.current = true;
+      onItemLongPress(item);
+    }, 500); // 500ms for long press
+  };
+
+  const handleTouchEnd = (item: HistoryItem) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+
+    if (!isLongPress.current) {
+      onItemClick(item);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-slate-50">
       <div className="flex items-center justify-between px-6 py-5 bg-white border-b border-slate-100 sticky top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <h2 className="text-2xl font-bold text-slate-800">History</h2>
         {history.length > 0 && (
-          <button 
+          <button
             onClick={onClear}
             className="p-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-full transition-colors"
             title="Clear History"
@@ -30,7 +54,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history, onClear }) =>
           </div>
         ) : (
           history.map((item) => (
-            <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+            <div
+              key={item.id}
+              onTouchStart={() => handleTouchStart(item)}
+              onTouchEnd={() => handleTouchEnd(item)}
+              className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 active:bg-slate-50 transition-colors"
+            >
               <div className="flex justify-between items-start mb-2">
                 <span className="text-[10px] text-slate-400 font-mono">
                   {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -45,7 +74,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history, onClear }) =>
               </div>
               <p className="text-slate-800 font-medium mb-2">{item.selected}</p>
               <div className="pt-2 border-t border-slate-50 mt-2">
-                 <p className="text-xs text-slate-400 truncate">Orig: {item.original}</p>
+                <p className="text-xs text-slate-400 truncate">Orig: {item.original}</p>
               </div>
             </div>
           ))

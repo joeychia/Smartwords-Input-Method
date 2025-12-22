@@ -18,6 +18,7 @@ export interface HistoryItem {
   selected: string;
   timestamp: number;
   tags: string[]; // e.g., 'concise', 'friendly'
+  variants?: RewriteVariant[]; // Cache for viewing history later
 }
 
 export interface UserSettings {

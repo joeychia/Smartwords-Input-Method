@@ -7,7 +7,9 @@ interface RewriteViewProps {
   rawTranscript: string;
   contextHistory: HistoryItem[];
   tone: string;
+  initialVariants?: RewriteVariant[];
   onSelect: (variant: RewriteVariant) => void;
+  onVariantsGenerated?: (variants: RewriteVariant[]) => void;
   onBack: () => void;
 }
 
@@ -15,29 +17,42 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
   rawTranscript,
   contextHistory,
   tone,
+  initialVariants = [],
   onSelect,
+  onVariantsGenerated,
   onBack
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [variants, setVariants] = useState<RewriteVariant[]>([]);
+  const [loading, setLoading] = useState(initialVariants.length === 0);
+  const [variants, setVariants] = useState<RewriteVariant[]>(initialVariants);
   const [languageFilter, setLanguageFilter] = useState<'all' | 'zh' | 'en'>('all');
   const startRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
 
   useEffect(() => {
+    // If we already have variants (from history cache), don't fetch again
+    if (initialVariants && initialVariants.length > 0) {
+      setVariants(initialVariants);
+      setLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
     const fetch = async () => {
+      setLoading(true);
       const results = await generateRewrites(rawTranscript, contextHistory, tone);
       if (isMounted) {
         setVariants(results);
         setLoading(false);
+        if (onVariantsGenerated) {
+          onVariantsGenerated(results);
+        }
       }
     };
 
     fetch();
 
     return () => { isMounted = false; };
-  }, [rawTranscript, contextHistory, tone]);
+  }, [rawTranscript, initialVariants, contextHistory, tone, onVariantsGenerated]);
 
   // Filter variants based on selected language
   const filteredVariants = variants.filter(variant => {
@@ -108,8 +123,8 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
             <button
               onClick={() => setLanguageFilter('all')}
               className={`px-3 py-1 text-xs font-medium rounded transition-all ${languageFilter === 'all'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-800'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-600 hover:text-slate-800'
                 }`}
             >
               All
@@ -117,8 +132,8 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
             <button
               onClick={() => setLanguageFilter('zh')}
               className={`px-3 py-1 text-xs font-medium rounded transition-all ${languageFilter === 'zh'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-800'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-600 hover:text-slate-800'
                 }`}
             >
               中文
@@ -126,8 +141,8 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
             <button
               onClick={() => setLanguageFilter('en')}
               className={`px-3 py-1 text-xs font-medium rounded transition-all ${languageFilter === 'en'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-800'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-600 hover:text-slate-800'
                 }`}
             >
               EN
