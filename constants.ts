@@ -6,6 +6,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   tone: 'natural',
   language: 'mixed',
   autoStopSilence: true,
+  geminiApiKey: '',
+  preferredEnvironment: 'auto',
 };
 
 export const MOCK_CONTEXT_LIMIT = 10;

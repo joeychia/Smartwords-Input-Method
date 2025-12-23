@@ -7,6 +7,7 @@ interface RewriteViewProps {
   rawTranscript: string;
   contextHistory: HistoryItem[];
   tone: string;
+  geminiApiKey?: string;
   initialVariants?: RewriteVariant[];
   onSelect: (variant: RewriteVariant) => void;
   onVariantsGenerated?: (variants: RewriteVariant[]) => void;
@@ -17,6 +18,7 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
   rawTranscript,
   contextHistory,
   tone,
+  geminiApiKey,
   initialVariants = [],
   onSelect,
   onVariantsGenerated,
@@ -39,7 +41,7 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
 
     const fetch = async () => {
       setLoading(true);
-      const results = await generateRewrites(rawTranscript, contextHistory, tone);
+      const results = await generateRewrites(rawTranscript, contextHistory, tone, geminiApiKey);
       if (isMounted) {
         setVariants(results);
         setLoading(false);
@@ -52,7 +54,7 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
     fetch();
 
     return () => { isMounted = false; };
-  }, [rawTranscript, initialVariants, contextHistory, tone, onVariantsGenerated]);
+  }, [rawTranscript, initialVariants, contextHistory, tone, geminiApiKey, onVariantsGenerated]);
 
   // Filter variants based on selected language
   const filteredVariants = variants.filter(variant => {

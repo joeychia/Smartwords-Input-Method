@@ -6,6 +6,7 @@ final class DataManager {
 
     private let suiteName = "group.com.joeyjia.smartwords"
     private let keyPending = "pending_text"
+    private let keyEnvPreference = "app_environment_preference"
 
     private var defaults: UserDefaults {
         UserDefaults(suiteName: suiteName) ?? UserDefaults.standard
@@ -14,7 +15,15 @@ final class DataManager {
     func savePendingText(_ text: String) {
         defaults.set(text, forKey: keyPending)
         defaults.synchronize()
-        // Removed UIPasteboard usage to prevent "Allow Pasting" popups
+    }
+
+    func setEnvironmentPreference(_ pref: String) {
+        defaults.set(pref, forKey: keyEnvPreference)
+        defaults.synchronize()
+    }
+
+    func getEnvironmentPreference() -> String {
+        return defaults.string(forKey: keyEnvPreference) ?? "auto"
     }
 
     func getPendingText() -> String? {

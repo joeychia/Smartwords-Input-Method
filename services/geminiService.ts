@@ -1,30 +1,26 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { RewriteVariant, HistoryItem } from '../types';
 
-// Initialize Gemini Client for browser (Vite uses import.meta.env)
-const apiKey: string | undefined = (import.meta as any).env?.VITE_API_KEY;
-let ai: GoogleGenAI | null = null;
-try {
-  if (apiKey) {
-    ai = new GoogleGenAI({ apiKey });
-  }
-} catch (e) {
-  console.error("Gemini client initialization failed", e);
-  ai = null;
-}
+// Fallback key from build environment
+const ENV_API_KEY = (import.meta as any).env?.VITE_API_KEY;
 
 export const generateRewrites = async (
   rawTranscript: string,
   contextHistory: HistoryItem[],
-  tone: string
+  tone: string,
+  userApiKey?: string
 ): Promise<RewriteVariant[]> => {
   try {
-    if (!ai) {
+    const key = userApiKey || ENV_API_KEY;
+
+    if (!key) {
       return [
         { id: 'original', label: 'Original', text: rawTranscript, description: 'Raw transcript' },
-        { id: 'local', label: 'Local', text: rawTranscript, description: 'API key missing; using raw text' }
+        { id: 'local', label: 'Local', text: rawTranscript, description: 'API key missing; please set it in Settings' }
       ];
     }
+
+    const ai = new GoogleGenAI(key);
 
     // Filter context: last 10 minutes AND last 10 messages
     const tenMinutesAgo = Date.now() - (10 * 60 * 1000);

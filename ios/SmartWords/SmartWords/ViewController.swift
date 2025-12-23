@@ -12,19 +12,10 @@ import AVFoundation
 
 class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHandler, SFSpeechRecognizerDelegate {
     var webView: WKWebView!
-    #if DEBUG
-    let candidateURLs: [String] = [
-        "http://10.0.0.131:5173",  // Mac's local IP - use this for physical device
-        "http://localhost:5173",     // Works for Simulator only
-        "http://127.0.0.1:5173"
-    ]
-    #else
-    let candidateURLs: [String] = [
-        "https://joeychia.github.io/Smartwords-Input-Method/" // Production
-    ]
-    #endif
+    private let devURL = "http://10.0.0.131:5173"
+    private let prodURL = "https://joeychia.github.io/Smartwords-Input-Method/"
+    private var activityIndicator: UIActivityIndicatorView?
 
-    
     // Speech Recognition Properties
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -58,15 +49,73 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
         requestSpeechAuthorization()
     }
 
+    private func setupLoadingIndicator() {
+        let indicator = UIActivityIndicatorView(style: .medium)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(indicator)
+        NSLayoutConstraint.activate([
+            indicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            indicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+        indicator.startAnimating()
+        self.activityIndicator = indicator
+    }
+
     func loadServer() {
-        for urlString in candidateURLs {
-            if let url = URL(string: urlString) {
-                print("📡 Attempting to load: \(urlString)")
-                webView.load(URLRequest(url: url))
-                return
+        let pref = DataManager.shared.getEnvironmentPreference()
+        print("🔍 Preferred Environment: \(pref)")
+        
+        switch pref {
+        case "dev":
+            loadURL(devURL)
+        case "prod":
+            loadURL(prodURL)
+        default: // auto
+            setupLoadingIndicator()
+            checkEndpoint(devURL) { [weak self] isAvailable in
+                DispatchQueue.main.async {
+                    self?.activityIndicator?.stopAnimating()
+                    self?.activityIndicator?.removeFromSuperview()
+                    
+                    let finalURL = isAvailable ? self?.devURL : self?.prodURL
+                    print("🏁 Auto-environment check complete. Loading: \(finalURL ?? "nil")")
+                    
+                    if let urlString = finalURL {
+                        self?.loadURL(urlString)
+                    }
+                }
             }
         }
-        print("❌ No valid URLs found in candidateURLs")
+    }
+
+    private func loadURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        print("🚀 Loading URL: \(urlString)")
+        let request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30.0)
+        webView.load(request)
+    }
+
+    private func checkEndpoint(_ urlString: String, completion: @escaping (Bool) -> Void) {
+        guard let url = URL(string: urlString) else {
+            completion(false)
+            return
+        }
+        
+        print("🔍 Probing environment: \(urlString)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 1.0 // Quick probe
+        
+        let task = URLSession.shared.dataTask(with: request) { _, response, error in
+            if let error = error {
+                print("❌ Probe failed: \(error.localizedDescription)")
+                completion(false)
+            } else {
+                print("✅ Probe success")
+                completion(true)
+            }
+        }
+        task.resume()
     }
     
     // MARK: - Speech Recognition Authorization
@@ -104,7 +153,7 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
         
         // Single activation attempt without blocking the main thread
         // If it fails here, the React layer will retry via the increased 1.5s delay
-        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        try audioSession.setActive(true, options: .notifyingOthersOnDeactivation)
         print("✅ Audio Session activated")
         
         // Create recognition request
@@ -189,6 +238,14 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
             if let body = message.body as? [String: Any], let action = body["action"] as? String {
                 if action == "saveToAppGroup", let text = body["text"] as? String {
                     DataManager.shared.savePendingText(text)
+                } else if action == "setEnvironmentPreference", let pref = body["preference"] as? String {
+                    print("⚙️ Setting environment preference to: \(pref)")
+                    DataManager.shared.setEnvironmentPreference(pref)
+                    
+                    // Immediately reload with the new environment
+                    DispatchQueue.main.async {
+                        self.loadServer()
+                    }
                 }
             }
         } else if message.name == "speechHandler" {
@@ -216,8 +273,21 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        handleLoadFailure(error: error)
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        handleLoadFailure(error: error)
+    }
+
+    private func handleLoadFailure(error: Error) {
+        print("❌ Final Webview load failed: \(error.localizedDescription)")
+        showFailureUI()
+    }
+
+    private func showFailureUI() {
         let label = UILabel()
-        label.text = "Failed to load dev server"
+        label.text = "Failed to load Smart Words"
         label.textAlignment = .center
         label.textColor = .secondaryLabel
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -226,7 +296,7 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
             label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
-        print("WKWebView error:", error.localizedDescription)
     }
+
 
 }

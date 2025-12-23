@@ -56,3 +56,16 @@ export const savePendingTextForKeyboard = (text: string) => {
     console.log("[Bridge] iOS Native Host not found (Dev Mode)");
   }
 };
+
+/**
+ * Notify iOS Host about environment preference change
+ */
+export const setEnvironmentPreference = (pref: 'auto' | 'dev' | 'prod') => {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.vimHandler) {
+    console.log("[Bridge] Updating environment preference to:", pref);
+    window.webkit.messageHandlers.vimHandler.postMessage({
+      action: 'setEnvironmentPreference',
+      preference: pref
+    });
+  }
+};

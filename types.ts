@@ -25,6 +25,8 @@ export interface UserSettings {
   tone: 'natural' | 'formal' | 'casual';
   language: 'mixed' | 'en' | 'zh';
   autoStopSilence: boolean;
+  geminiApiKey?: string;
+  preferredEnvironment: 'auto' | 'dev' | 'prod';
 }
 
 export interface GeminResponseSchema {

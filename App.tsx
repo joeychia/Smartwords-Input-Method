@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, Clock, Settings, FileText } from 'lucide-react';
+import { Mic, Clock, Settings, FileText, Bug, Globe, AlertCircle } from 'lucide-react';
 import { AppView, HistoryItem, RewriteVariant, UserSettings } from './types';
 import { DictationView } from './components/DictationView';
 import { RewriteView } from './components/RewriteView';
@@ -13,6 +13,18 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<UserSettings>(getSettings());
   const [tempTranscript, setTempTranscript] = useState<string>('');
   const [tempVariants, setTempVariants] = useState<RewriteVariant[]>([]);
+  const [backendStatus, setBackendStatus] = useState<'debug' | 'prod' | 'unavailable'>('unavailable');
+
+  useEffect(() => {
+    const host = window.location.hostname;
+    if (host.includes('10.') || host === 'localhost' || host === '127.0.0.1') {
+      setBackendStatus('debug');
+    } else if (host.includes('github.io')) {
+      setBackendStatus('prod');
+    } else {
+      setBackendStatus('unavailable');
+    }
+  }, []);
 
   useEffect(() => {
     setHistory(getHistory());
@@ -87,6 +99,7 @@ const App: React.FC = () => {
             initialVariants={tempVariants}
             contextHistory={history}
             tone={settings.tone}
+            geminiApiKey={settings.geminiApiKey}
             onSelect={handleVariantSelect}
             onVariantsGenerated={setTempVariants}
             onBack={() => setCurrentView(AppView.DICTATION)}
@@ -144,9 +157,16 @@ const App: React.FC = () => {
 
           <button
             onClick={() => setCurrentView(AppView.SETTINGS)}
-            className={`flex flex-col items-center space-y-1 w-16 ${currentView === AppView.SETTINGS ? 'text-indigo-600' : 'text-slate-400'}`}
+            className={`flex flex-col items-center space-y-1 w-16 relative ${currentView === AppView.SETTINGS ? 'text-indigo-600' : 'text-slate-400'}`}
           >
-            <Settings size={24} strokeWidth={currentView === AppView.SETTINGS ? 2.5 : 2} />
+            <div className="relative">
+              <Settings size={24} strokeWidth={currentView === AppView.SETTINGS ? 2.5 : 2} />
+              <div className="absolute -top-1 -right-1">
+                {backendStatus === 'debug' && <Bug size={10} className="text-amber-500 fill-amber-500 animate-pulse" />}
+                {backendStatus === 'prod' && <Globe size={10} className="text-emerald-500 fill-emerald-500" />}
+                {backendStatus === 'unavailable' && <AlertCircle size={10} className="text-rose-500 fill-rose-500" />}
+              </div>
+            </div>
             <span className="text-[10px] font-medium">Settings</span>
           </button>
         </nav>
