@@ -1,9 +1,3 @@
-export enum AppView {
-  DICTATION = 'DICTATION',
-  REWRITE = 'REWRITE',
-  HISTORY = 'HISTORY',
-  SETTINGS = 'SETTINGS'
-}
 
 export interface RewriteVariant {
   id: string;
