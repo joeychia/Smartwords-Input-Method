@@ -19,7 +19,7 @@ protocol KeyboardActionDelegate: AnyObject {
 struct KeyboardView: View {
     weak var delegate: KeyboardActionDelegate?
     
-    @State private var keyboardMode: KeyboardMode = .symbols
+    @State private var keyboardMode: KeyboardMode = .letters
     @State private var isShifted: Bool = false
     
     var body: some View {

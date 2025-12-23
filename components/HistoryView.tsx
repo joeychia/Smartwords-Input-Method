@@ -13,7 +13,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history, onClear, onIt
   const longPressTimer = React.useRef<NodeJS.Timeout | null>(null);
   const isLongPress = React.useRef(false);
 
-  const handleTouchStart = (item: HistoryItem) => {
+  const handleTouchStart = (e: React.TouchEvent, item: HistoryItem) => {
+    e.preventDefault(); // Prevent text selection
     isLongPress.current = false;
     longPressTimer.current = setTimeout(() => {
       isLongPress.current = true;
@@ -21,7 +22,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history, onClear, onIt
     }, 500); // 500ms for long press
   };
 
-  const handleTouchEnd = (item: HistoryItem) => {
+  const handleTouchEnd = (e: React.TouchEvent, item: HistoryItem) => {
+    e.preventDefault(); // Prevent text selection
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -56,9 +58,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history, onClear, onIt
           history.map((item) => (
             <div
               key={item.id}
-              onTouchStart={() => handleTouchStart(item)}
-              onTouchEnd={() => handleTouchEnd(item)}
-              className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 active:bg-slate-50 transition-colors"
+              onTouchStart={(e) => handleTouchStart(e, item)}
+              onTouchEnd={(e) => handleTouchEnd(e, item)}
+              className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 active:bg-slate-50 transition-colors select-none"
             >
               <div className="flex justify-between items-start mb-2">
                 <span className="text-[10px] text-slate-400 font-mono">
