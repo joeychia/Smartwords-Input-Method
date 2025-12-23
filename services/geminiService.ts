@@ -1,8 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { RewriteVariant, HistoryItem } from '../types';
-
-// Fallback key from build environment
-const ENV_API_KEY = (import.meta as any).env?.VITE_API_KEY;
 
 export const generateRewrites = async (
   rawTranscript: string,
@@ -11,7 +8,9 @@ export const generateRewrites = async (
   userApiKey?: string
 ): Promise<RewriteVariant[]> => {
   try {
-    const key = userApiKey || ENV_API_KEY;
+    // 1. Get API Key
+    const viteKey = (import.meta as any).env?.VITE_API_KEY;
+    const key = userApiKey || viteKey;
 
     if (!key) {
       return [
@@ -20,17 +19,52 @@ export const generateRewrites = async (
       ];
     }
 
-    const ai = new GoogleGenAI(key);
+    // 2. Initialize Gemini
+    const genAI = new GoogleGenerativeAI(key);
 
-    // Filter context: last 10 minutes AND last 10 messages
-    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
-    const recentContext = contextHistory
-      .filter(h => h.timestamp >= tenMinutesAgo) // Within last 10 minutes
-      .slice(0, 10) // Max 10 messages
-      .map(h => `User: ${h.selected}`)
-      .join('\n');
+    // We'll try the most modern models first (it's Dec 2025)
+    // Preference order: 3-flash, 2.5-flash, 1.5-flash
+    const modelNames = ['gemini-3-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    let lastError: any = null;
 
-    const prompt = `
+    for (const modelName of modelNames) {
+      try {
+        console.log(`🤖 Attempting AI generation with: ${modelName}`);
+
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: SchemaType.OBJECT,
+              properties: {
+                variants: {
+                  type: SchemaType.ARRAY,
+                  items: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                      id: { type: SchemaType.STRING },
+                      label: { type: SchemaType.STRING },
+                      text: { type: SchemaType.STRING },
+                      description: { type: SchemaType.STRING }
+                    },
+                    required: ["id", "label", "text"]
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        // Context filtering
+        const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+        const recentContext = contextHistory
+          .filter(h => h.timestamp >= tenMinutesAgo)
+          .slice(0, 10)
+          .map(h => `User: ${h.selected}`)
+          .join('\n');
+
+        const prompt = `
 You are an expert AI assistant for voice input processing. Your task is to intelligently clean up and rewrite voice transcripts.
 
 **Recent Conversation Context (last 10 minutes, max 10 messages):**
@@ -93,46 +127,38 @@ The recommendations should:
 }
 
 Note: The label for recommendations should describe the scenario/tone (e.g., "推荐：更礼貌", "推荐：问询", "Rec: Urgent", "Rec: Formal")
-    `;
+`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            variants: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: { type: Type.STRING },
-                  label: { type: Type.STRING },
-                  text: { type: Type.STRING },
-                  description: { type: Type.STRING }
-                },
-                required: ["id", "label", "text"]
-              }
-            }
-          }
-        }
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        console.log(`✅ Success with ${modelName}`);
+        const data = JSON.parse(text);
+        return data.variants || [];
+      } catch (err: any) {
+        console.warn(`⚠️ Failed with ${modelName}:`, err.message);
+        lastError = err;
+        // Continue to next model in list
       }
-    });
+    }
 
-    const jsonText = response.text;
-    if (!jsonText) throw new Error("Empty response from AI");
+    // If all models failed
+    throw lastError;
 
-    const data = JSON.parse(jsonText);
-    return data.variants || [];
+  } catch (error: any) {
+    console.error("Gemini API Ultimate Failure:", error);
 
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    // Fallback in case of API failure to allow UI to show something
+    let errorMsg = error?.message || 'Unknown error';
+    if (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('API key not valid')) {
+      errorMsg = 'Invalid API Key. Check Settings or .env.local';
+    } else if (errorMsg.includes('model not found') || errorMsg.includes('404')) {
+      errorMsg = 'AI Model not found. The API might have changed IDs.';
+    }
+
     return [
       { id: 'original', label: 'Original', text: rawTranscript, description: 'Raw transcript' },
-      { id: 'error', label: 'Error', text: rawTranscript, description: 'Could not connect to AI' }
+      { id: 'error', label: 'Error', text: rawTranscript, description: `AI Error: ${errorMsg}` }
     ];
   }
 };

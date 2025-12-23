@@ -142,18 +142,13 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
     // MARK: - Speech Recognition Methods
     
     private func startRecording(language: String = "en-US") throws {
-        // Cancel any ongoing task
-        recognitionTask?.cancel()
-        recognitionTask = nil
+        // Always stop previous session/task first
+        stopRecording()
         
         // Configure audio session
         let audioSession = AVAudioSession.sharedInstance()
-        // Use .playAndRecord for better compatibility with foreground transitions
         try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
-        
-        // Single activation attempt without blocking the main thread
-        // If it fails here, the React layer will retry via the increased 1.5s delay
-        try audioSession.setActive(true, options: .notifyingOthersOnDeactivation)
+        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         print("✅ Audio Session activated")
         
         // Create recognition request
@@ -208,25 +203,42 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
         
         // Configure audio input
         let recordingFormat = inputNode.outputFormat(forBus: 0)
+        
+        // Safety: If sample rate is 0, things will fail silently
+        guard recordingFormat.sampleRate > 0 else {
+            print("❌ Invalid audio format (0Hz). Microphone might be in use.")
+            throw NSError(domain: "SpeechRecognition", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid audio format"])
+        }
+        
+        print("🎙️ Starting tap at \(recordingFormat.sampleRate)Hz")
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
             recognitionRequest.append(buffer)
         }
         
-        // Start audio engine
-        audioEngine.prepare()
-        try audioEngine.start()
-        
-        print("✅ Speech recognition started")
+        // Start audio engine with a tiny delay to ensure session is ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self = self else { return }
+            do {
+                self.audioEngine.prepare()
+                try self.audioEngine.start()
+                print("✅ Speech recognition started successfully")
+            } catch {
+                print("❌ Failed to start audio engine: \(error.localizedDescription)")
+            }
+        }
     }
     
     private func stopRecording() {
-        audioEngine.stop()
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
         
-        if let inputNode = audioEngine.inputNode as? AVAudioInputNode {
-            inputNode.removeTap(onBus: 0)
-        }
+        recognitionRequest = nil
+        recognitionTask = nil
         
         print("⏹️ Speech recognition stopped")
     }
