@@ -1,7 +1,8 @@
 import React from 'react';
 import { UserSettings } from '../types';
-import { Check, Settings as SettingsIcon, Globe, Bug, Zap } from 'lucide-react';
+import { Check, Settings as SettingsIcon, Globe, Bug, Zap, Activity, ShieldCheck, AlertCircle as AlertCircleIcon } from 'lucide-react';
 import { setEnvironmentPreference } from '../services/storageService';
+import { analytics } from '../services/analyticsService';
 
 interface SettingsViewProps {
   settings: UserSettings;
@@ -9,6 +10,28 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate }) => {
+
+  const [healthData, setHealthData] = React.useState<any>(null);
+
+  const refreshHealth = () => {
+    const data = analytics.getSessionHealth();
+    console.log('[SettingsView] Refreshing health data:', data);
+    setHealthData(data);
+  };
+
+  React.useEffect(() => {
+    refreshHealth();
+
+    // Listen for storage changes from other components (like geminiService)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'sw_health_stats') {
+        refreshHealth();
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const update = (key: keyof UserSettings, value: any) => {
     onUpdate({ ...settings, [key]: value });
@@ -120,6 +143,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate }
             <p className="mt-3 text-[10px] text-slate-400 leading-relaxed">
               Your key is saved locally on this device. It is used to generate smart suggestions and rewrites.
             </p>
+          </div>
+        </section>
+
+        {/* System Health Section */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">System Health</h3>
+            <button
+              onClick={refreshHealth}
+              className="text-[10px] text-indigo-600 font-bold hover:underline"
+            >
+              Refresh ↻
+            </button>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden p-4 space-y-4">
+            {!healthData ? (
+              <p className="text-xs text-slate-400">No session data yet. Try a dictation first!</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <ShieldCheck size={14} className={(healthData.totalRequests > 0 && (healthData.successCount / healthData.totalRequests) > 0.9) ? "text-green-500" : "text-amber-500"} />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Success Rate</span>
+                  </div>
+                  <p className="text-xl font-bold text-slate-800">
+                    {healthData.totalRequests > 0
+                      ? Math.round((healthData.successCount / healthData.totalRequests) * 100)
+                      : 100}%
+                  </p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <Activity size={14} className="text-indigo-500" />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Avg Latency</span>
+                  </div>
+                  <p className="text-xl font-bold text-slate-800">{healthData.avgLatency}ms</p>
+                </div>
+                <div className="col-span-2 flex items-center justify-between px-1">
+                  <span className="text-[10px] text-slate-400 font-medium">Total Requests: {healthData.totalRequests}</span>
+                  <span className="text-[10px] text-slate-400 font-medium font-mono">Status: {healthData.totalRequests > 0 ? 'ONLINE' : 'WAITING'}</span>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

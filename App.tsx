@@ -7,10 +7,25 @@ import { RewriteView } from './components/RewriteView';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import { getHistory, saveHistoryItem, clearHistory, getSettings, saveSettings, savePendingTextForKeyboard } from './services/storageService';
+import { STORAGE_KEYS } from './constants';
+import { analytics } from './services/analyticsService';
 
 const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Lifecycle instrumentation
+  useEffect(() => {
+    analytics.logEvent({ category: 'App', action: 'app_launch' });
+  }, []);
+
+  useEffect(() => {
+    analytics.logEvent({
+      category: 'Navigation',
+      action: 'screen_view',
+      label: location.pathname
+    });
+  }, [location.pathname]);
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [settings, setSettings] = useState<UserSettings>(getSettings());
@@ -39,6 +54,11 @@ const AppContent: React.FC = () => {
   };
 
   const handleDictationFinish = (transcript: string) => {
+    analytics.logEvent({
+      category: 'Dictation',
+      action: 'transcription_finish',
+      metadata: { length: transcript.length }
+    });
     setTempTranscript(transcript);
     setTempVariants([]); // Reset variants for new transcript
     navigate('/rewrite');
@@ -57,6 +77,17 @@ const AppContent: React.FC = () => {
     saveHistoryItem(newItem);
     setHistory(getHistory());
     savePendingTextForKeyboard(variant.text);
+
+    analytics.logEvent({
+      category: 'Interaction',
+      action: 'variant_select',
+      label: variant.label,
+      metadata: {
+        input_length: tempTranscript.length,
+        output_length: variant.text.length
+      }
+    });
+
     navigate('/');
 
     const toast = document.createElement('div');
@@ -84,7 +115,7 @@ const AppContent: React.FC = () => {
   const handleDeleteHistoryItem = (item: HistoryItem) => {
     const updatedHistory = history.filter(h => h.id !== item.id);
     setHistory(updatedHistory);
-    localStorage.setItem('history', JSON.stringify(updatedHistory));
+    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(updatedHistory));
   };
 
   const isNavVisible = useMemo(() => {

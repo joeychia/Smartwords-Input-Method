@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { RewriteVariant, HistoryItem } from '../types';
+import { analytics } from './analyticsService';
 
 export const generateRewrites = async (
   rawTranscript: string,
@@ -103,6 +104,14 @@ Generate cleanup and variations according to system instructions.
 
         const duration = Math.round(performance.now() - startTime);
         console.log(`✅ Success with ${modelName} in ${duration}ms`);
+        analytics.logTiming('AI', 'ai_rewrite_latency', duration, modelName);
+        analytics.logEvent({
+          category: 'AI',
+          action: 'ai_rewrite_success',
+          label: modelName,
+          metadata: { input_length: rawTranscript.length }
+        });
+
         const data = JSON.parse(text);
         return data.variants || [];
       } catch (err: any) {
@@ -112,6 +121,8 @@ Generate cleanup and variations according to system instructions.
     }
 
     // If all models failed
+    const finalError = lastError?.message || 'All models failed';
+    analytics.logError(`AI generation failure: ${finalError}`, false, { transcript: rawTranscript });
     throw lastError;
 
   } catch (error: any) {
