@@ -81,6 +81,12 @@ const AppContent: React.FC = () => {
     navigate('/rewrite');
   };
 
+  const handleDeleteHistoryItem = (item: HistoryItem) => {
+    const updatedHistory = history.filter(h => h.id !== item.id);
+    setHistory(updatedHistory);
+    localStorage.setItem('history', JSON.stringify(updatedHistory));
+  };
+
   const isNavVisible = useMemo(() => {
     return !location.pathname.startsWith('/rewrite');
   }, [location.pathname]);
@@ -108,7 +114,8 @@ const AppContent: React.FC = () => {
               history={history}
               onClear={() => { clearHistory(); setHistory([]); }}
               onItemClick={handleHistoryItemSelect}
-              onItemLongPress={handleHistoryItemRewrite}
+              onItemSwipeRight={handleHistoryItemRewrite}
+              onDeleteItem={handleDeleteHistoryItem}
             />
           } />
           <Route path="/setting" element={<SettingsView settings={settings} onUpdate={handleSettingsUpdate} />} />
