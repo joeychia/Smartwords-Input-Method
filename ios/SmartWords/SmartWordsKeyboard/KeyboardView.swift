@@ -118,7 +118,7 @@ struct KeyboardView: View {
             
             // Row 4: 123 | Space | Return
             HStack(spacing: 6) {
-                KeyboardKey(text: "123", color: Color(white: 0.3), width: 2.0, action: {
+                KeyboardKey(text: "123", color: Color(white: 0.3), width: 1.5, action: {
                     keyboardMode = .symbols
                 })
                 
@@ -134,7 +134,7 @@ struct KeyboardView: View {
                         .cornerRadius(5)
                 }
                 
-                KeyboardKey(icon: "return", color: Color(white: 0.3), width: 2.0, action: { delegate?.returnKeyPressed() })
+                KeyboardKey(icon: "return", color: Color(white: 0.3), width: 1.5, action: { delegate?.returnKeyPressed() })
             }
             .padding(.horizontal, 4)
         }
@@ -176,7 +176,7 @@ struct KeyboardView: View {
             
             // Row 4: ABC | Space | Return
             HStack(spacing: 6) {
-                KeyboardKey(text: "ABC", color: Color(white: 0.3), width: 2.0, action: {
+                KeyboardKey(text: "ABC", color: Color(white: 0.3), width: 1.5, action: {
                     keyboardMode = .letters
                 })
                 
@@ -234,7 +234,7 @@ struct KeyboardView: View {
             
             // Row 4: ABC | Space | Return
             HStack(spacing: 6) {
-                KeyboardKey(text: "ABC", color: Color(white: 0.3), width: 2.0, action: {
+                KeyboardKey(text: "ABC", color: Color(white: 0.3), width: 1.5, action: {
                     keyboardMode = .letters
                 })
                 
