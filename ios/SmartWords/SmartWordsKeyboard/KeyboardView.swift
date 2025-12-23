@@ -1,5 +1,12 @@
 import SwiftUI
 
+// Keyboard mode enum
+enum KeyboardMode {
+    case letters
+    case symbols
+    case extendedSymbols
+}
+
 // Protocol to handle keyboard actions back in the ViewController
 protocol KeyboardActionDelegate: AnyObject {
     func insertText(_ text: String)
@@ -12,16 +19,15 @@ protocol KeyboardActionDelegate: AnyObject {
 struct KeyboardView: View {
     weak var delegate: KeyboardActionDelegate?
     
-    // The "Start SmartWords" link action is handled via the native Link component
-    // But we might want to style it specifically.
+    @State private var keyboardMode: KeyboardMode = .symbols
+    @State private var isShifted: Bool = false
     
     var body: some View {
         VStack(spacing: 8) {
             // -- Row 1: Top Bar (Settings | Start App) --
             HStack {
-                Button(action: {
-                    // Placeholder for settings
-                }) {
+                // Settings link to open app at settings screen
+                Link(destination: URL(string: "smartwords://setting")!) {
                     Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 24))
                         .foregroundColor(.white)
@@ -51,7 +57,94 @@ struct KeyboardView: View {
             .padding(.top, 8)
             .padding(.bottom, 4)
             
-            // -- Row 2: Numbers --
+            // Conditional layout based on mode
+            if keyboardMode == .letters {
+                letterLayout
+            } else if keyboardMode == .symbols {
+                symbolLayout
+            } else {
+                extendedSymbolsLayout
+            }
+        }
+        .padding(.bottom, 8)
+        .background(Color(red: 0.1, green: 0.1, blue: 0.1))
+    }
+    
+    // MARK: - Letter Layout (QWERTY)
+    
+    var letterLayout: some View {
+        VStack(spacing: 6) {
+            // Row 1: Q W E R T Y U I O P
+            HStack(spacing: 6) {
+                ForEach(["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"], id: \.self) { key in
+                    KeyboardKey(text: isShifted ? key : key.lowercased(), action: {
+                        delegate?.insertText(isShifted ? key : key.lowercased())
+                        if isShifted { isShifted = false }
+                    })
+                }
+            }
+            .padding(.horizontal, 4)
+            
+            // Row 2: A S D F G H J K L (centered)
+            HStack(spacing: 6) {
+                Spacer().frame(width: 20)
+                ForEach(["A", "S", "D", "F", "G", "H", "J", "K", "L"], id: \.self) { key in
+                    KeyboardKey(text: isShifted ? key : key.lowercased(), action: {
+                        delegate?.insertText(isShifted ? key : key.lowercased())
+                        if isShifted { isShifted = false }
+                    })
+                }
+                Spacer().frame(width: 20)
+            }
+            .padding(.horizontal, 4)
+            
+            // Row 3: Shift + Z X C V B N M + Backspace
+            HStack(spacing: 6) {
+                KeyboardKey(
+                    icon: isShifted ? "shift.fill" : "shift",
+                    color: isShifted ? Color.white.opacity(0.3) : Color(white: 0.3),
+                    width: 1.5,
+                    action: { isShifted.toggle() }
+                )
+                ForEach(["Z", "X", "C", "V", "B", "N", "M"], id: \.self) { key in
+                    KeyboardKey(text: isShifted ? key : key.lowercased(), action: {
+                        delegate?.insertText(isShifted ? key : key.lowercased())
+                        if isShifted { isShifted = false }
+                    })
+                }
+                KeyboardKey(icon: "delete.left", color: Color(white: 0.3), width: 1.5, action: { delegate?.deleteBackward() })
+            }
+            .padding(.horizontal, 4)
+            
+            // Row 4: 123 | Space | Return
+            HStack(spacing: 6) {
+                KeyboardKey(text: "123", color: Color(white: 0.3), width: 2.0, action: {
+                    keyboardMode = .symbols
+                })
+                
+                Button(action: {
+                    delegate?.insertText(" ")
+                }) {
+                    Text("SmartWords")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Color(white: 0.25))
+                        .cornerRadius(5)
+                }
+                
+                KeyboardKey(icon: "return", color: Color(white: 0.3), width: 2.0, action: { delegate?.returnKeyPressed() })
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+    
+    // MARK: - Symbol Layout (Numbers + Symbols)
+    
+    var symbolLayout: some View {
+        VStack(spacing: 6) {
+            // Row 1: Numbers
             HStack(spacing: 6) {
                 ForEach(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"], id: \.self) { key in
                     KeyboardKey(text: key, action: { delegate?.insertText(key) })
@@ -59,7 +152,7 @@ struct KeyboardView: View {
             }
             .padding(.horizontal, 4)
             
-            // -- Row 3: Symbols 1 --
+            // Row 2: Symbols
             HStack(spacing: 6) {
                 ForEach(["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""], id: \.self) { key in
                     KeyboardKey(text: key, action: { delegate?.insertText(key) })
@@ -67,45 +160,100 @@ struct KeyboardView: View {
             }
             .padding(.horizontal, 4)
             
-            // -- Row 4: Symbols 2 + Backspace --
+            // Row 3: #+= + punctuation + backspace
             HStack(spacing: 6) {
-                KeyboardKey(text: "#+=", color: Color(white: 0.3), width: 1.5, action: { /* Switch Mode? */ })
-                ForEach([".", ",", "?", "!", "'"], id: \.self) { key in
-                    KeyboardKey(text: key, action: { delegate?.insertText(key) })
-                }
-                KeyboardKey(icon: "delete.left", color: Color(white: 0.3), width: 1.2, action: { delegate?.deleteBackward() })
+                KeyboardKey(text: "#+=", color: Color(white: 0.3), width: 1.3, action: {
+                    keyboardMode = .extendedSymbols
+                })
+                KeyboardKey(text: ".", action: { delegate?.insertText(".") })
+                KeyboardKey(text: ",", action: { delegate?.insertText(",") })
+                KeyboardKey(text: "?", action: { delegate?.insertText("?") })
+                KeyboardKey(text: "!", action: { delegate?.insertText("!") })
+                KeyboardKey(text: "'", action: { delegate?.insertText("'") })
+                KeyboardKey(icon: "delete.left", color: Color(white: 0.3), width: 1.3, action: { delegate?.deleteBackward() })
             }
             .padding(.horizontal, 4)
             
-            // -- Row 5: Action Row --
+            // Row 4: ABC | Space | Return
             HStack(spacing: 6) {
-                // CHANGED: "ABC" -> "Insert" with action
-                KeyboardKey(text: "Insert", color: Color(white: 0.3), width: 1.5, action: { delegate?.insertPendingText() })
+                KeyboardKey(text: "ABC", color: Color(white: 0.3), width: 2.0, action: {
+                    keyboardMode = .letters
+                })
                 
-                // Main "SmartWords" Space/Action Bar
                 Button(action: {
                     delegate?.insertText(" ")
                 }) {
-                    HStack {
-                        Image(systemName: "chart.bar.xaxis") // Closest icon to '|||'
-                        Text("SmartWords")
-                            .font(.system(size: 18, weight: .bold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(Color(white: 0.3)) // Dark Grey
-                    .foregroundColor(.gray)
-                    .cornerRadius(5)
+                    Text("SmartWords")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Color(white: 0.25))
+                        .cornerRadius(5)
                 }
                 
-                KeyboardKey(icon: "return", color: Color(white: 0.3), width: 1.5, action: { delegate?.returnKeyPressed() })
+                KeyboardKey(icon: "return", color: Color(white: 0.3), width: 2.5, action: { delegate?.returnKeyPressed() })
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+    
+    // MARK: - Extended Symbols Layout
+    
+    var extendedSymbolsLayout: some View {
+        VStack(spacing: 6) {
+            // Row 1: Brackets and special symbols
+            HStack(spacing: 6) {
+                ForEach(["[", "]", "{", "}", "#", "%", "^", "*", "+", "="], id: \.self) { key in
+                    KeyboardKey(text: key, action: { delegate?.insertText(key) })
+                }
             }
             .padding(.horizontal, 4)
             
-            // REMOVED: Row 6 (Globe Icon)
+            // Row 2: More symbols
+            HStack(spacing: 6) {
+                ForEach(["_", "\\", "|", "~", "<", ">", "€", "£", "¥", "•"], id: \.self) { key in
+                    KeyboardKey(text: key, action: { delegate?.insertText(key) })
+                }
+            }
+            .padding(.horizontal, 4)
+            
+            // Row 3: 123 + punctuation + backspace
+            HStack(spacing: 6) {
+                KeyboardKey(text: "123", color: Color(white: 0.3), width: 1.3, action: {
+                    keyboardMode = .symbols
+                })
+                KeyboardKey(text: ".", action: { delegate?.insertText(".") })
+                KeyboardKey(text: ",", action: { delegate?.insertText(",") })
+                KeyboardKey(text: "?", action: { delegate?.insertText("?") })
+                KeyboardKey(text: "!", action: { delegate?.insertText("!") })
+                KeyboardKey(text: "'", action: { delegate?.insertText("'") })
+                KeyboardKey(icon: "delete.left", color: Color(white: 0.3), width: 1.3, action: { delegate?.deleteBackward() })
+            }
+            .padding(.horizontal, 4)
+            
+            // Row 4: ABC | Space | Return
+            HStack(spacing: 6) {
+                KeyboardKey(text: "ABC", color: Color(white: 0.3), width: 2.0, action: {
+                    keyboardMode = .letters
+                })
+                
+                Button(action: {
+                    delegate?.insertText(" ")
+                }) {
+                    Text("SmartWords")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Color(white: 0.25))
+                        .cornerRadius(5)
+                }
+                
+                KeyboardKey(icon: "return", color: Color(white: 0.3), width: 2.5, action: { delegate?.returnKeyPressed() })
+            }
+            .padding(.horizontal, 4)
         }
-        .padding(.bottom, 8) // Add some bottom padding since we removed the row
-        .background(Color(red: 0.1, green: 0.1, blue: 0.1)) // Dark Background
     }
 }
 
@@ -114,14 +262,13 @@ struct KeyboardKey: View {
     var text: String?
     var icon: String?
     var color: Color = Color(white: 0.25)
-    var width: CGFloat = 1.0 // Relative width multiplier
+    var width: CGFloat = 1.0
     var action: () -> Void
     
     var body: some View {
         Button(action: action) {
             ZStack {
                 if let text = text {
-                    // Adjust font size for longer text like "Insert"
                     Text(text)
                         .font(.system(size: text.count > 1 ? 14 : 20, weight: text.count > 1 ? .semibold : .regular))
                 } else if let icon = icon {
@@ -129,13 +276,11 @@ struct KeyboardKey: View {
                         .font(.system(size: 20))
                 }
             }
-            .frame(maxWidth: .infinity) // Flexible width
+            .frame(maxWidth: .infinity)
             .frame(height: 44)
             .background(color)
             .foregroundColor(.white)
             .cornerRadius(5)
         }
-        // Apply width multiplier logic if strictly needed, but flexible Grid/HStack often better
-        // For simple rows, just letting them expand equally is close enough for v1
     }
 }

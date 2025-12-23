@@ -165,8 +165,9 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
         // Create recognizer for specified language
         let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language)) ?? speechRecognizer
         
-        // Start recognition task
-        recognitionTask = recognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+        // Workaround to capture task reference inside closure
+        var task: SFSpeechRecognitionTask?
+        task = recognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             guard let self = self else { return }
             
             var isFinal = false
@@ -179,7 +180,7 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
                 let jsCode = """
                 if (window.handleSpeechResult) {
                     window.handleSpeechResult({
-                        transcript: "\(transcript.replacingOccurrences(of: "\"", with: "\\\""))",
+                        transcript: "\(transcript.replacingOccurrences(of: "\"", with: "\\\"") )",
                         isFinal: \(isFinal)
                     });
                 }
@@ -189,17 +190,23 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
                 print("🎤 Speech: \(transcript) (final: \(isFinal))")
             }
             
+            // Only cleanup if this is still the active task (prevents old callbacks from interfering)
             if error != nil || isFinal {
-                self.audioEngine.stop()
-                inputNode.removeTap(onBus: 0)
-                self.recognitionRequest = nil
-                self.recognitionTask = nil
-                
-                if let error = error {
-                    print("❌ Speech recognition error: \(error.localizedDescription)")
+                if self.recognitionTask === task {
+                    self.audioEngine.stop()
+                    inputNode.removeTap(onBus: 0)
+                    self.recognitionRequest = nil
+                    self.recognitionTask = nil
+                    
+                    if let error = error {
+                        print("❌ Speech recognition error: \(error.localizedDescription)")
+                    }
+                } else {
+                    print("⚠️ Ignoring completion from old recognition task")
                 }
             }
         }
+        recognitionTask = task
         
         // Configure audio input
         let recordingFormat = inputNode.outputFormat(forBus: 0)
@@ -215,17 +222,11 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
             recognitionRequest.append(buffer)
         }
         
-        // Start audio engine with a tiny delay to ensure session is ready
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            guard let self = self else { return }
-            do {
-                self.audioEngine.prepare()
-                try self.audioEngine.start()
-                print("✅ Speech recognition started successfully")
-            } catch {
-                print("❌ Failed to start audio engine: \(error.localizedDescription)")
-            }
-        }
+        // Start audio engine immediately (no delay needed after proper cleanup)
+        audioEngine.prepare()
+        try audioEngine.start()
+        
+        print("✅ Speech recognition started successfully")
     }
     
     private func stopRecording() {
@@ -312,3 +313,4 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
 
 
 }
+
