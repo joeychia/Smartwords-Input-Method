@@ -12,6 +12,7 @@ interface RewriteViewProps {
   onSelect: (variant: RewriteVariant) => void;
   onVariantsGenerated?: (variants: RewriteVariant[]) => void;
   onBack: () => void;
+  onHistory?: () => void;
 }
 
 export const RewriteView: React.FC<RewriteViewProps> = ({
@@ -22,7 +23,8 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
   initialVariants = [],
   onSelect,
   onVariantsGenerated,
-  onBack
+  onBack,
+  onHistory
 }) => {
   const [loading, setLoading] = useState(initialVariants.length === 0);
   const [variants, setVariants] = useState<RewriteVariant[]>(initialVariants);
@@ -66,7 +68,23 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-6 text-center space-y-6">
+      <div
+        className="flex flex-col items-center justify-center h-full px-6 text-center space-y-6"
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          startRef.current = { x: t.clientX, y: t.clientY, time: Date.now() };
+        }}
+        onTouchEnd={(e) => {
+          const s = startRef.current; if (!s) return;
+          const t = e.changedTouches[0];
+          const dx = t.clientX - s.x; const dy = Math.abs(t.clientY - s.y);
+          const dt = Date.now() - s.time;
+          if (s.x < 30 && dx > 60 && dy < 40 && dt < 600) {
+            onBack();
+          }
+          startRef.current = null;
+        }}
+      >
         <div className="relative">
           <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
           <Loader2 size={48} className="text-indigo-600 animate-spin relative z-10" />
@@ -92,7 +110,8 @@ export const RewriteView: React.FC<RewriteViewProps> = ({
         const dx = t.clientX - s.x; const dy = Math.abs(t.clientY - s.y);
         const dt = Date.now() - s.time;
         if (s.x < 30 && dx > 60 && dy < 40 && dt < 600) {
-          onBack();
+          if (onHistory) onHistory();
+          else onBack();
         }
         startRef.current = null;
       }}

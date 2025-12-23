@@ -137,7 +137,8 @@ const AppContent: React.FC = () => {
               geminiApiKey={settings.geminiApiKey}
               onSelect={handleVariantSelect}
               onVariantsGenerated={setTempVariants}
-              onBack={() => navigate(-1)}
+              onBack={() => navigate('/')}
+              onHistory={() => navigate('/history')}
             />
           } />
           <Route path="/history" element={
