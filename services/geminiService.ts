@@ -23,9 +23,8 @@ export const generateRewrites = async (
     // 2. Initialize Gemini
     const genAI = new GoogleGenerativeAI(key);
 
-    // We'll try the most modern models first (it's Dec 2025)
-    // Preference order: 2.5-flash, 1.5-flash
-    const modelNames = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+    // Try available Gemini models in order of preference
+    const modelNames = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
     let lastError: any = null;
 
     for (const modelName of modelNames) {
@@ -115,7 +114,13 @@ Generate cleanup and variations according to system instructions.
         const data = JSON.parse(text);
         return data.variants || [];
       } catch (err: any) {
-        console.warn(`⚠️ Failed with ${modelName}:`, err.message);
+        console.error(`❌ Failed with ${modelName}:`, {
+          message: err.message,
+          status: err.status,
+          statusText: err.statusText,
+          errorDetails: err.errorDetails,
+          fullError: err
+        });
         lastError = err;
       }
     }
