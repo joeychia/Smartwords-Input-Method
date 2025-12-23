@@ -24,7 +24,7 @@ export const generateRewrites = async (
     const genAI = new GoogleGenerativeAI(key);
 
     // Try available Gemini models in order of preference
-    const modelNames = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    const modelNames = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
     let lastError: any = null;
 
     for (const modelName of modelNames) {
